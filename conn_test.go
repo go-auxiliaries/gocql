@@ -53,7 +53,7 @@ import (
 )
 
 const (
-	defaultProto = protoVersion2
+	defaultProto = protoVersion4
 )
 
 func TestApprove(t *testing.T) {
@@ -333,17 +333,17 @@ func TestCancel(t *testing.T) {
 	// Make sure we finish the query without leftovers
 	var wg sync.WaitGroup
 	wg.Add(1)
-
 	go func() {
-		if err := qry.Exec(); err != context.Canceled {
-			t.Fatalf("expected to get context cancel error: '%v', got '%v'", context.Canceled, err)
-		}
+		err = qry.Exec()
 		wg.Done()
 	}()
 
 	// The query will timeout after about 1 seconds, so cancel it after a short pause
 	time.AfterFunc(20*time.Millisecond, cancel)
 	wg.Wait()
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected to get context cancel error: '%v', got '%v'", context.Canceled, err)
+	}
 }
 
 type testQueryObserver struct {
@@ -1056,18 +1056,13 @@ func (nts newTestServerOpts) newServer(t testing.TB, ctx context.Context) *TestS
 		t.Fatal(err)
 	}
 
-	headerSize := 8
-	if nts.protocol > protoVersion2 {
-		headerSize = 9
-	}
-
 	ctx, cancel := context.WithCancel(ctx)
 	srv := &TestServer{
 		Address:    listen.Addr().String(),
 		listen:     listen,
 		t:          t,
 		protocol:   nts.protocol,
-		headerSize: headerSize,
+		headerSize: 9,
 		ctx:        ctx,
 		cancel:     cancel,
 
@@ -1103,18 +1098,13 @@ func NewSSLTestServer(t testing.TB, protocol uint8, ctx context.Context) *TestSe
 		t.Fatal(err)
 	}
 
-	headerSize := 8
-	if protocol > protoVersion2 {
-		headerSize = 9
-	}
-
 	ctx, cancel := context.WithCancel(ctx)
 	srv := &TestServer{
 		Address:    listen.Addr().String(),
 		listen:     listen,
 		t:          t,
 		protocol:   protocol,
-		headerSize: headerSize,
+		headerSize: 9,
 		ctx:        ctx,
 		cancel:     cancel,
 	}
